@@ -1,6 +1,5 @@
 name: Smart Contract Tests
 
-# This workflow runs on every push to main and for all pull requests
 on:
   push:
     branches:
@@ -9,37 +8,25 @@ on:
     branches:
       - main
 
-# Define environment variables used throughout the workflow
 env:
   FOUNDRY_PROFILE: ci
-  SOLC_VERSION: 0.8.20
-  
+
 jobs:
-  test:
-    name: Foundry Tests
+  check:
+    name: Foundry Project
     runs-on: ubuntu-latest
-    
     steps:
-      # Check out the repository code
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # Install Foundry using foundryup
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
-      # Install specific Solidity compiler version
-      - name: Install Solidity Compiler
-        run: |
-          solc-select install ${{ env.SOLC_VERSION }}
-          solc-select use ${{ env.SOLC_VERSION }}
-
-      # Cache dependencies to speed up builds
-      - name: Cache dependencies
+      - name: Cache Dependencies
         uses: actions/cache@v3
         with:
           path: |
@@ -49,103 +36,90 @@ jobs:
             ~/.cargo/git/db/
             lib/
             out/
-          key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-foundry-
+          key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml', '**/Cargo.lock') }}
 
-      # Install project dependencies
       - name: Install Dependencies
         run: forge install
 
-      # Build the contracts
-      - name: Build Contracts
+      - name: Run Forge build
         run: |
           forge --version
           forge build --sizes
         id: build
 
-      # Run the test suite
-      - name: Run Tests
+      - name: Run Forge tests
         run: |
           forge test -vvv
         id: test
 
-      # Generate and upload gas report
-      - name: Generate Gas Report
-        run: |
-          forge test --gas-report > gas-report.txt
-        id: gas-report
-
-      # Upload gas report as artifact
-      - name: Upload Gas Report
-        uses: actions/upload-artifact@v3
-        with:
-          name: gas-report
-          path: gas-report.txt
-          retention-days: 30
-
-      # Run contract size check
-      - name: Check Contract Sizes
-        run: forge build --sizes
-        id: contract-sizes
-
-      # Optional: Run coverage report
-      - name: Generate Coverage Report
+      - name: Run Forge coverage
         run: |
           forge coverage --report lcov
         id: coverage
-        continue-on-error: true
 
-      # Upload coverage report
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v3
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
         with:
-          name: coverage-report
-          path: lcov.info
-          retention-days: 30
-        if: steps.coverage.outcome == 'success'
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./lcov.info
+          fail_ci_if_error: true
 
-  # Add a separate job for linting if you want to enforce coding style
+      - name: Gas snapshot
+        run: forge snapshot --check
+
+      - name: Storage layout
+        run: forge inspect --pretty
+
   lint:
-    name: Solidity Linting
+    name: Run Linters
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Solidity Compiler
-        run: |
-          solc-select install ${{ env.SOLC_VERSION }}
-          solc-select use ${{ env.SOLC_VERSION }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      # Run solhint for linting
-      - name: Run Solhint
+      - name: Install solhint
         run: |
-          npm install -g solhint
-          solhint 'src/**/*.sol' 'test/**/*.sol'
+          npm init -y
+          npm install solhint
+          npm install solhint-plugin-prettier
 
-  # Add security scanning
+      - name: Run solhint
+        run: |
+          npx solhint '**/*.sol'
+
+      - name: Run forge fmt check
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      
+      - name: Check formatting
+        run: forge fmt --check
+
   security:
     name: Security Analysis
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Run Slither analysis
       - name: Run Slither
         uses: crytic/slither-action@v0.3.0
         continue-on-error: true
         id: slither
         with:
-          node-version: 16
+          node-version: 20
           sarif: results.sarif
 
-      # Upload Slither analysis results
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: results.sarif
-        if: steps.slither.outcome == 'success'
+        if: always()
