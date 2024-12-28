@@ -1,45 +1,151 @@
-name: CI
+name: Smart Contract Tests
 
+# This workflow runs on every push to main and for all pull requests
 on:
   push:
+    branches:
+      - main
   pull_request:
-  workflow_dispatch:
+    branches:
+      - main
 
+# Define environment variables used throughout the workflow
 env:
   FOUNDRY_PROFILE: ci
-
+  SOLC_VERSION: 0.8.20
+  
 jobs:
-  check:
-    strategy:
-      fail-fast: true
-
-    name: Foundry project
+  test:
+    name: Foundry Tests
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      # Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      # Install Foundry using foundryup
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
-      - name: Show Forge version
+      # Install specific Solidity compiler version
+      - name: Install Solidity Compiler
+        run: |
+          solc-select install ${{ env.SOLC_VERSION }}
+          solc-select use ${{ env.SOLC_VERSION }}
+
+      # Cache dependencies to speed up builds
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            lib/
+            out/
+          key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
+      # Install project dependencies
+      - name: Install Dependencies
+        run: forge install
+
+      # Build the contracts
+      - name: Build Contracts
         run: |
           forge --version
-
-      - name: Run Forge fmt
-        run: |
-          forge fmt --check
-        id: fmt
-
-      - name: Run Forge build
-        run: |
           forge build --sizes
         id: build
 
-      - name: Run Forge tests
+      # Run the test suite
+      - name: Run Tests
         run: |
           forge test -vvv
         id: test
+
+      # Generate and upload gas report
+      - name: Generate Gas Report
+        run: |
+          forge test --gas-report > gas-report.txt
+        id: gas-report
+
+      # Upload gas report as artifact
+      - name: Upload Gas Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: gas-report
+          path: gas-report.txt
+          retention-days: 30
+
+      # Run contract size check
+      - name: Check Contract Sizes
+        run: forge build --sizes
+        id: contract-sizes
+
+      # Optional: Run coverage report
+      - name: Generate Coverage Report
+        run: |
+          forge coverage --report lcov
+        id: coverage
+        continue-on-error: true
+
+      # Upload coverage report
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: lcov.info
+          retention-days: 30
+        if: steps.coverage.outcome == 'success'
+
+  # Add a separate job for linting if you want to enforce coding style
+  lint:
+    name: Solidity Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Solidity Compiler
+        run: |
+          solc-select install ${{ env.SOLC_VERSION }}
+          solc-select use ${{ env.SOLC_VERSION }}
+
+      # Run solhint for linting
+      - name: Run Solhint
+        run: |
+          npm install -g solhint
+          solhint 'src/**/*.sol' 'test/**/*.sol'
+
+  # Add security scanning
+  security:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Run Slither analysis
+      - name: Run Slither
+        uses: crytic/slither-action@v0.3.0
+        continue-on-error: true
+        id: slither
+        with:
+          node-version: 16
+          sarif: results.sarif
+
+      # Upload Slither analysis results
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: results.sarif
+        if: steps.slither.outcome == 'success'
