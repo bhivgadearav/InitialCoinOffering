@@ -1,66 +1,134 @@
-## Foundry
+# Initial Coin Offering (ICO) Smart Contract
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A gas-optimized, secure smart contract implementation for managing Initial Coin Offerings on the Ethereum blockchain. This contract enables fair token distribution based on proportional bidding mechanisms.
 
-Foundry consists of:
+## Features
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+The ICO contract provides a comprehensive solution for token sales with the following features:
 
-## Documentation
+- Proportional token distribution based on bid amounts
+- Gas-optimized storage and execution
+- Two-day fixed duration ICO periods
+- Minimum bid requirements
+- Secure token and ETH claiming mechanisms
+- Comprehensive testing suite
+- Owner-controlled start time and token allocation
 
-https://book.getfoundry.sh/
+## Technical Architecture
+
+The contract uses several gas optimization techniques while maintaining security:
+
+- Struct packing for efficient storage
+- Strategic use of immutable variables
+- Optimized event emissions
+- Storage slot management
+- Memory caching for repeated operations
+
+## Prerequisites
+
+To work with this project, you'll need:
+
+- [Foundry](https://github.com/foundry-rs/foundry) - Installation instructions can be found in their documentation
+- [Solidity](https://docs.soliditylang.org/) ^0.8.0
+- [Git](https://git-scm.com/)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/ico-contract.git
+cd ico-contract
+```
+
+2. Install dependencies:
+```bash
+forge install
+```
+
+3. Build the project:
+```bash
+forge build
+```
+
+4. Run tests:
+```bash
+forge test
+```
 
 ## Usage
 
-### Build
+### Contract Deployment
 
-```shell
-$ forge build
+1. Deploy the contract with treasury and token addresses:
+```solidity
+constructor(address _treasury, address _tokenAddress)
 ```
 
-### Test
-
-```shell
-$ forge test
+2. Allocate tokens for the ICO:
+```solidity
+function allocateTokensForSale(uint256 _amount) external onlyOwner
 ```
 
-### Format
-
-```shell
-$ forge fmt
+3. Start the ICO:
+```solidity
+function startICO() external onlyOwner
 ```
 
-### Gas Snapshots
+### Participating in the ICO
 
-```shell
-$ forge snapshot
+1. Place a bid:
+```solidity
+function placeBid() external payable
 ```
 
-### Anvil
-
-```shell
-$ anvil
+2. Claim tokens after ICO ends:
+```solidity
+function claimTokens() external
 ```
 
-### Deploy
+## Testing
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+The project includes a comprehensive test suite covering all major functionality:
+
+```bash
+# Run all tests
+forge test
+
+# Run tests with gas reporting
+forge test --gas-report
+
+# Run specific test
+forge test --match-test testPlaceBid
 ```
 
-### Cast
+## Security Considerations
 
-```shell
-$ cast <subcommand>
-```
+- The contract implements checks for reentrancy and overflow protection
+- Bidding and claiming mechanisms are protected against manipulation
+- Treasury withdrawal is restricted to owner access
+- Token transfers are validated and secured
 
-### Help
+## Gas Optimization
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+The contract implements several gas optimization strategies:
+
+1. Storage Packing
+   - Bid struct uses uint96 for amounts to pack with address
+   - Strategic use of immutable variables
+
+2. Computation Optimization
+   - Efficient memory usage
+   - Optimized loop operations
+   - Storage cleanup for gas refunds
+
+## Contributing
+
+Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+## Support
+
+For support and questions, please open an issue in the GitHub repository.
