@@ -2,13 +2,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "../src/InitialCoinOffering.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-
-contract TestToken is ERC20 {
-    constructor() ERC20("Test Token", "TEST") {
-        _mint(msg.sender, 1000000 * 10**18);
-    }
-}
+import "./TestToken.sol";
 
 contract InitialCoinOfferingTest is Test {
     InitialCoinOffering public ico;
@@ -37,7 +31,7 @@ contract InitialCoinOfferingTest is Test {
         token.approve(address(ico), 1000000 * 10**18);
     }
     
-    function testInitialState() public {
+    function testInitialState() public view {
         assertEq(ico.treasury(), treasury);
         assertEq(ico.tokenAddress(), address(token));
         assertEq(ico.tokensForSale(), 0);
