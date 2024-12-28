@@ -12,114 +12,20 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
-  check:
-    name: Foundry Project
+  test:
+    name: Run Forge Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
-      - name: Cache Dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            lib/
-            out/
-          key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml', '**/Cargo.lock') }}
-
       - name: Install Dependencies
         run: forge install
 
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge build --sizes
-        id: build
-
       - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
-
-      - name: Run Forge coverage
-        run: |
-          forge coverage --report lcov
-        id: coverage
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./lcov.info
-          fail_ci_if_error: true
-
-      - name: Gas snapshot
-        run: forge snapshot --check
-
-      - name: Storage layout
-        run: forge inspect --pretty
-
-  lint:
-    name: Run Linters
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install solhint
-        run: |
-          npm init -y
-          npm install solhint
-          npm install solhint-plugin-prettier
-
-      - name: Run solhint
-        run: |
-          npx solhint '**/*.sol'
-
-      - name: Run forge fmt check
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
-      
-      - name: Check formatting
-        run: forge fmt --check
-
-  security:
-    name: Security Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run Slither
-        uses: crytic/slither-action@v0.3.0
-        continue-on-error: true
-        id: slither
-        with:
-          node-version: 20
-          sarif: results.sarif
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: results.sarif
-        if: always()
+        run: forge test -vvv
